@@ -127,8 +127,8 @@
     </link>
 
     <plugin
-      filename="ignition-gazebo-hydrodynamics-system"
-      name="ignition::gazebo::systems::Hydrodynamics">
+      filename="gz-sim-hydrodynamics-system"
+      name="gz::sim::systems::Hydrodynamics">
       <link_name>main_body</link_name>
 
       <xDotU>-1</xDotU>
@@ -157,8 +157,8 @@
     </plugin>
 
 
-    <plugin filename="libignition-gazebo-velocity-control-system.so"
-      name="ignition::gazebo::systems::VelocityControl">
+    <plugin filename="gz-sim-velocity-control-system"
+      name="gz::sim::systems::VelocityControl">
       <link_name>main_body</link_name>
       <topic>/cmd_vel</topic>
       <initial_linear>0.0 0.0 0.0</initial_linear>
@@ -213,8 +213,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_0/set_output_force_N</topic>
 
@@ -274,8 +274,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_1/set_output_force_N</topic>
 
@@ -335,8 +335,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_2/set_output_force_N</topic>
 
@@ -396,8 +396,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_3/set_output_force_N</topic>
 
@@ -457,8 +457,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_4/set_output_force_N</topic>
 
@@ -518,8 +518,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_5/set_output_force_N</topic>
 
@@ -579,8 +579,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_6/set_output_force_N</topic>
 
@@ -640,8 +640,8 @@
     </joint>
 
     <!-- <plugin
-      filename="ignition-gazebo-thruster-system"
-      name="ignition::gazebo::systems::Thruster">
+      filename="gz-sim-thruster-system"
+      name="gz::sim::systems::Thruster">
       <namespace>orca_auv</namespace>
       <topic>thruster_7/set_output_force_N</topic>
 

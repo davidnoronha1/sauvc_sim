@@ -3,19 +3,30 @@
   <world name="pool_world">
 
     <plugin
-      filename="ignition-gazebo-physics-system"
+      filename="gz-sim-physics-system"
       name="gz::sim::systems::Physics">
     </plugin>
     <plugin
-      filename="ignition-gazebo-user-commands-system"
+      filename="gz-sim-user-commands-system"
       name="gz::sim::systems::UserCommands">
     </plugin>
     <plugin
-      filename="ignition-gazebo-scene-broadcaster-system"
+      filename="gz-sim-scene-broadcaster-system"
       name="gz::sim::systems::SceneBroadcaster">
     </plugin>
+    <!--
+      Required for ArduPilotPlugin to get valid FDM state: without this,
+      IMU data never publishes, CreateStateJSON() silently no-ops on
+      !imuMsgValid, and ArduSub SITL hangs forever on
+      "No JSON sensor message received, resending servos" (never boots,
+      so nothing - including depth hold - can be tested).
+    -->
     <plugin
-      filename="ignition-gazebo-sensors-system"
+      filename="gz-sim-imu-system"
+      name="gz::sim::systems::Imu">
+    </plugin>
+    <plugin
+      filename="gz-sim-sensors-system"
       name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
@@ -30,8 +41,8 @@
       <shadows>true</shadows>
     </scene>
 
-    <!-- Use DART (default in Fortress) -->
-    <physics name="dart" type="ignition-physics-dartsim">
+    <!-- Use DART (default) -->
+    <physics name="dart" type="dart">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
@@ -154,23 +165,62 @@
           </material>
         </visual>
       </link>
-    </model> 
+    </model>
 
-    <!-- World-level Buoyancy system: uniform water region filling the pool -->
-    <plugin filename="ignition-gazebo-buoyancy-system" name="ignition::gazebo::systems::Buoyancy">
-      <uniform_fluid_density>1000</uniform_fluid_density>
+    <!-- Water surface: visual only (no collision) so it doesn't obstruct the AUV. -->
+    <model name="water_surface">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="surface">
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>50.3 25.6</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.1 0.35 0.55 0.6</ambient>
+            <diffuse>0.1 0.4 0.65 0.6</diffuse>
+            <specular>0.8 0.9 1 0.6</specular>
+            <emissive>0 0 0 1</emissive>
+          </material>
+          <transparency>0.4</transparency>
+        </visual>
+      </link>
+    </model>
+
+    <!--
+      World-level Buoyancy system. graded_buoyancy (not uniform_fluid_density)
+      is required: uniform_fluid_density applies full water density (1000)
+      everywhere, including above the z=0 water surface, so any model with
+      buoyant force > weight accelerates upward without limit once it
+      breaches the surface (density never drops off). graded_buoyancy drops
+      the density to 1 (air) above_depth 0, matching bluerov2_heavy_underwater.world.
+    -->
+    <plugin filename="gz-sim-buoyancy-system" name="gz::sim::systems::Buoyancy">
+      <graded_buoyancy>
+        <default_density>1000</default_density>
+        <density_change>
+          <above_depth>0</above_depth>
+          <density>1</density>
+        </density_change>
+      </graded_buoyancy>
     </plugin>
 
+    <!-- Primary AUV: BlueROV2 Heavy - standardized across all competition scenes -->
+    <include>
+      <uri>model://bluerov2_heavy</uri>
+      <pose>11 -11.5 -0.2 0 0 1.5708</pose>
+    </include>
+
+    <!-- Legacy demo_auv kept for reference (disable by commenting bluerov2_heavy above) -->
+    <!--
     <include>
       <uri>model://demo_auv</uri>
-      
-      <!-- qualification -->
-      <pose>-24.6 0 -0.2 0 0 0</pose>
-
-      <!-- final -->
       <pose>11 -11.5 -0.2 0 0 1.5708</pose>
-    
     </include>
+    -->
 
     <include>
       <uri>model://q_gate</uri>

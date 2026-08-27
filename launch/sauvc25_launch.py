@@ -31,7 +31,7 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+            '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
             '/realsense/image@sensor_msgs/msg/Image@gz.msgs.Image',
             '/realsense/depth_image@sensor_msgs/msg/Image@gz.msgs.Image',
             '/realsense/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
