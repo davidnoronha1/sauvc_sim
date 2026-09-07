@@ -70,17 +70,17 @@ class TeleopKeyboard(Node):
         
         os.makedirs(self.recording_dir, exist_ok=True)
         
-        # Camera subscribers
-        self.realsense_sub = self.create_subscription(
-            Image, '/realsense/image', self.realsense_callback, 10)
+        # Camera subscribers (updated to match mira topics)
+        self.front_cam_sub = self.create_subscription(
+            Image, '/camera_front/image_raw', self.front_cam_callback, 10)
         self.side_cam_sub = self.create_subscription(
             Image, '/side_cam', self.side_cam_callback, 10)
         self.bottom_cam_sub = self.create_subscription(
-            Image, '/bottom_cam', self.bottom_cam_callback, 10)
+            Image, '/camera_bottom/image_raw', self.bottom_cam_callback, 10)
         
         # Recording state
         self.cameras = {
-            'realsense': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
+            'front': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
             'side': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
             'bottom': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
         }
@@ -133,15 +133,15 @@ class TeleopKeyboard(Node):
                 status.append(f"{cam_name}: OFF")
         print(f"\nRecording status: {' | '.join(status)}")
     
-    def realsense_callback(self, msg):
-        """Callback for RealSense camera"""
+    def front_cam_callback(self, msg):
+        """Callback for front camera"""
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.cameras['realsense']['latest_frame'] = cv_image
-            if self.cameras['realsense']['recording'] and self.cameras['realsense']['writer']:
-                self.cameras['realsense']['writer'].write(cv_image)
+            self.cameras['front']['latest_frame'] = cv_image
+            if self.cameras['front']['recording'] and self.cameras['front']['writer']:
+                self.cameras['front']['writer'].write(cv_image)
         except Exception as e:
-            self.get_logger().error(f'RealSense callback error: {e}')
+            self.get_logger().error(f'Front camera callback error: {e}')
     
     def side_cam_callback(self, msg):
         """Callback for side camera"""
@@ -289,7 +289,7 @@ class TeleopKeyboard(Node):
                     
                     # Check for recording controls
                     elif key == '1':
-                        self.toggle_camera('realsense')
+                        self.toggle_camera('front')
                     elif key == '2':
                         self.toggle_camera('side')
                     elif key == '3':

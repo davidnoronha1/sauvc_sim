@@ -1,213 +1,302 @@
 #!/usr/bin/env python3
+"""Populate the running world with a SAUVC arena.
+
+Prop placement follows the 2026 rulebook arena diagrams
+(docs/sim-visual/reference/arena-2026-finals.png and -qualifiers.png), all
+distances measured from the starting wall at x = -12.5:
+
+    starting zone   at the wall
+    orange flare    anywhere 4-8 m out
+    coloured flares anywhere 8-16 m out
+    navigation gate anywhere on the 16 m line
+    target zone     the last ~2 m before the far wall
+
+Randomisation is deliberate: the pinger drum order, prop positions and the
+container shape all vary between attempts in the real competition, so a run
+that only ever sees one layout tells you very little. Pass `seed` to make a
+layout reproducible.
+"""
+
+import json
+import math
+import os
+import random
+import time
 
 import rclpy
+from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Point, Pose, Quaternion
+from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
-from ros_gz_interfaces.srv import SpawnEntity
+from rclpy.parameter import Parameter
 from ros_gz_interfaces.msg import EntityFactory
-from geometry_msgs.msg import Pose, Point, Quaternion
-import random
-import os
-import time
+from ros_gz_interfaces.srv import SpawnEntity
+
+# Pool geometry, metres. The floor is the deep section of the 2026 arena.
+POOL_HALF_LENGTH = 12.5
+POOL_HALF_WIDTH = 8.0
+POOL_FLOOR_Z = -1.6
+
+# Distances from the starting wall, per the rulebook arena diagram.
+ORANGE_FLARE_ZONE = (4.0, 8.0)
+COLOUR_FLARE_ZONE = (8.0, 16.0)
+GATE_LINE = 16.0
+TARGET_ZONE_DEPTH = 2.0
+
+DRUM_STYLES = ('drum', 'tub')
 
 
 class EntitySpawner(Node):
     def __init__(self):
         super().__init__('entity_spawner')
-        
-        # Create service client for spawning entities
-        self.spawn_client = self.create_client(SpawnEntity, '/world/pool_world/create')
-        
-        # Wait for service to be available
+
+        self.declare_parameter(
+            'arena',
+            'finals',
+            ParameterDescriptor(description='Arena profile to spawn: finals or qualification'),
+        )
+        self.declare_parameter(
+            'seed',
+            '',
+            ParameterDescriptor(description='Optional random seed for reproducible prop placement', dynamic_typing=True),
+        )
+        self.declare_parameter(
+            'drum_style',
+            'random',
+            ParameterDescriptor(
+                description='Target container shape: drum (round, per rulebook text), '
+                            'tub (rectangular, as in the competition photos), or random'),
+        )
+        self.declare_parameter(
+            'world_name',
+            'water_world',
+            ParameterDescriptor(description='Gazebo world name for spawn service'),
+        )
+        self.declare_parameter(
+            'vehicle_model',
+            'bluerov2_heavy',
+            ParameterDescriptor(description='Vehicle model to spawn: bluerov2_heavy, orca_auv, or none'),
+        )
+
+        self.arena = self.get_parameter('arena').get_parameter_value().string_value.strip().lower()
+        if self.arena not in {'finals', 'qualification'}:
+            raise ValueError(f'Unsupported arena profile: {self.arena}')
+
+        seed_param = self.get_parameter('seed')
+        self.rng = random.Random()
+        seed_val = None
+        if seed_param.type_ == Parameter.Type.INTEGER:
+            seed_val = seed_param.value
+        elif seed_param.type_ == Parameter.Type.STRING and seed_param.value.strip():
+            seed_val = int(seed_param.value.strip())
+
+        if seed_val is not None:
+            self.rng.seed(seed_val)
+            self.get_logger().info(f'Using random seed {seed_val}')
+        else:
+            self.rng.seed()
+
+        style = self.get_parameter('drum_style').get_parameter_value().string_value.strip().lower()
+        if style not in set(DRUM_STYLES) | {'random'}:
+            raise ValueError(f'Unsupported drum style: {style}')
+        if style == 'random':
+            style_rng = random.Random()
+            style_rng.seed(seed_val)
+            self.drum_style = style_rng.choice(DRUM_STYLES)
+        else:
+            self.drum_style = style
+        self._spawned: dict[str, str] = {}
+
+        self.world_name = self.get_parameter('world_name').get_parameter_value().string_value.strip()
+        self.vehicle_model = self.get_parameter('vehicle_model').get_parameter_value().string_value.strip()
+
+        # Resolve models directory
+        self.models_paths = []
+        for pkg in ('sauvc_sim', 'bringup', 'bluerov2_gz'):
+            try:
+                self.models_paths.append(os.path.join(get_package_share_directory(pkg), 'models'))
+            except Exception:
+                pass
+        self.models_paths.extend([
+            '/workspace/sauvc_sim/models',
+            '/workspace/bluerov2_gz/models',
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models'),
+        ])
+
+        self.pool_floor_z = POOL_FLOOR_Z
+
+        service_topic = f'/world/{self.world_name}/create'
+        self.spawn_client = self.create_client(SpawnEntity, service_topic)
         while not self.spawn_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Waiting for spawn service...')
-        
-        self.get_logger().info('Spawn service is ready!')
-        
-        # Define fixed drum positions from original world file
-        self.drum_positions = [
-            (-3.0, 10.0, -2.2),   # Position 0
-            (-1.0, 10.0, -2.2),   # Position 1
-            (1.0, 10.0, -2.2),    # Position 2
-            (3.0, 10.0, -2.2),    # Position 3
-        ]
-        
-        # Store gate position for orange flare alignment
-        self.gate_x_position = None
-        
-        # Define entity configurations with customizable spawn ranges
-        # Format: (model_name, count, x_range, y_range, z_offset)
-        self.entity_configs = [
-            # Gate - spawn first to get x position
-            ('gate', 1, (0, 22), (-0.5, -0.5), -2.2),
-            
-            # Orange flare - will be adjusted after gate spawn
-            ('orange_flare', 1, (-3, 25), (-8.5, -4.5), -2.2),
-            
-            # Other flares - spawn scattered around pool
-            ('yellow_flare', 1, (4, 24), (0, 12), -2.2),
-            ('blue_flare', 1, (4, 24), (0, 12), -2.2),
-            ('red_flare', 1, (4, 24), (0, 12), -2.2),
-        ]
-        
-        # Path to your models directory
-        self.models_path = os.path.expanduser('/workspaces/isaac_ros-dev/src/sauvc_sim/models')
-        
-    def load_sdf_file(self, model_name):
-        """Load SDF file content for a given model"""
-        sdf_path = os.path.join(self.models_path, model_name, 'model.sdf')
-        
-        if not os.path.exists(sdf_path):
-            self.get_logger().error(f'SDF file not found: {sdf_path}')
-            return None
-            
-        try:
-            with open(sdf_path, 'r') as f:
-                return f.read()
-        except Exception as e:
-            self.get_logger().error(f'Error reading SDF file: {e}')
-            return None
-    
-    def spawn_entity(self, model_name, entity_name, x, y, z, roll=0.0, pitch=0.0, yaw=0.0):
-        """Spawn a single entity at specified pose"""
-        sdf_content = self.load_sdf_file(model_name)
-        
-        if sdf_content is None:
-            return False
-        
+            self.get_logger().info(f'Waiting for {service_topic}...')
+
+        self.get_logger().info(
+            f'Spawn service ready, launching {self.arena} arena setup '
+            f'(drum style: {self.drum_style}, world: {self.world_name}, vehicle: {self.vehicle_model})')
+
+    @staticmethod
+    def from_start_wall(distance: float) -> float:
+        """Convert a rulebook distance from the starting wall into a world x."""
+        return -POOL_HALF_LENGTH + distance
+
+    def load_model_sdf(self, model_name: str) -> str:
+        for base in self.models_paths:
+            sdf_path = os.path.join(base, model_name, 'model.sdf')
+            if os.path.exists(sdf_path):
+                with open(sdf_path, 'r', encoding='utf-8') as file:
+                    return file.read()
+        raise FileNotFoundError(f'Could not find model.sdf for {model_name} in {self.models_paths}')
+
+    def spawn_model(self, model_name: str, entity_name: str, x: float, y: float, z: float, yaw: float = 0.0) -> None:
         request = SpawnEntity.Request()
-        
-        # Create EntityFactory message
         entity_factory = EntityFactory()
         entity_factory.name = entity_name
         entity_factory.allow_renaming = False
-        entity_factory.sdf = sdf_content
-        
-        # Set pose
-        pose = Pose()
-        pose.position = Point(x=x, y=y, z=z)
-        pose.orientation = Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-        entity_factory.pose = pose
-        
-        entity_factory.relative_to = "world"
-        
+        entity_factory.sdf = self.load_model_sdf(model_name)
+        entity_factory.pose = Pose(
+            position=Point(x=x, y=y, z=z),
+            orientation=Quaternion(x=0.0, y=0.0, z=math.sin(yaw / 2.0), w=math.cos(yaw / 2.0)),
+        )
+        entity_factory.relative_to = 'world'
         request.entity_factory = entity_factory
-        
+
         future = self.spawn_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
-        
-        if future.result() is not None:
-            if future.result().success:
-                self.get_logger().info(f'Successfully spawned {entity_name} at ({x:.2f}, {y:.2f}, {z:.2f})')
-                return True
-            else:
-                self.get_logger().error(f'Failed to spawn {entity_name}')
-                return False
+        rclpy.spin_until_future_complete(self, future, timeout_sec=10.0)
+
+        if future.result() is None or not future.result().success:
+            raise RuntimeError(f'Failed to spawn {entity_name}: {future.result()}')
+
+        self._spawned[entity_name] = model_name
+        self.get_logger().info(
+            f'Spawned {entity_name} from {model_name} at x={x:.2f}, y={y:.2f}, z={z:.2f}, yaw={yaw:.2f}'
+        )
+        time.sleep(0.1)
+
+    def spawn_vehicle(self, x: float, y: float, z: float, yaw: float) -> None:
+        if not self.vehicle_model or self.vehicle_model.lower() in ('none', 'false', '0'):
+            self.get_logger().info('Vehicle spawning skipped (vehicle_model=none)')
+            return
+        self.spawn_model(self.vehicle_model, self.vehicle_model, x, y, z, yaw=yaw)
+
+    def spawn_qualification(self) -> None:
+        start_line_x = -POOL_HALF_LENGTH + 0.04
+        gate_x = self.from_start_wall(10.0)
+        start_line_ys = (-3.0, 3.0)
+
+        for index, start_y in enumerate(start_line_ys, start=1):
+            self.spawn_model('qualification_start_line', f'qualification_start_line_{index}',
+                             start_line_x, start_y, 0.02, yaw=math.pi / 2.0)
+            # The gate hangs from the surface, so it spawns at z = 0.
+            self.spawn_model('q_gate', f'q_gate_{index}', gate_x, start_y, 0.0, yaw=math.pi / 2.0)
+
+        chosen_start_y = self.rng.choice(start_line_ys)
+        self.spawn_vehicle(
+            x=start_line_x + 0.5,
+            y=chosen_start_y,
+            z=-0.4,
+            yaw=0.0,
+        )
+        self.get_logger().info(f'Qualification AUV spawned from starting line at y={chosen_start_y:.2f}')
+
+    def spawn_finals(self) -> None:
+        lateral_margin = 1.25
+        y_limit = POOL_HALF_WIDTH - lateral_margin
+
+        start_zone_x = self.from_start_wall(0.75)
+        start_zone_y = self.rng.uniform(-y_limit, y_limit)
+        gate_x = self.from_start_wall(GATE_LINE)
+        gate_y = self.rng.uniform(-y_limit, y_limit)
+        orange_x = self.from_start_wall(self.rng.uniform(*ORANGE_FLARE_ZONE))
+        orange_y = self.rng.uniform(-y_limit, y_limit)
+
+        self.spawn_model('starting_zone', 'starting_zone', start_zone_x, start_zone_y, 0.02, yaw=0.0)
+        self.spawn_vehicle(x=start_zone_x, y=start_zone_y, z=-0.4, yaw=0.0)
+        self.spawn_model('gate', 'navigation_gate', gate_x, gate_y, self.pool_floor_z,
+                         yaw=math.pi / 2.0)
+        self.spawn_model('orange_flare', 'orange_flare', orange_x, orange_y, self.pool_floor_z,
+                         yaw=self.rng.uniform(-math.pi, math.pi))
+
+        drum_positions = self.sample_drum_positions()
+        blue_model = 'blue_tub' if self.drum_style == 'tub' else 'blue_drum'
+        red_model = 'red_tub' if self.drum_style == 'tub' else 'red_drum'
+
+        # Entity names stay shape-independent so downstream tooling (and the
+        # detector's class names) do not care which variant was spawned.
+        self.spawn_model(blue_model, 'blue_drum', *drum_positions[0],
+                         yaw=self.rng.uniform(-0.25, 0.25))
+        for index, drum_pose in enumerate(drum_positions[1:]):
+            self.spawn_model(red_model, f'red_drum_{index}', *drum_pose,
+                             yaw=self.rng.uniform(-0.25, 0.25))
+        self.get_logger().info(
+            f'Target zone: {self.drum_style} shape, blue at {drum_positions[0][:2]}')
+
+        placed_positions = [(gate_x, gate_y), (orange_x, orange_y),
+                            *[(x, y) for x, y, _ in drum_positions]]
+
+        for model_name, entity_name in (('red_flare', 'red_flare'),
+                                        ('yellow_flare', 'yellow_flare'),
+                                        ('blue_flare', 'blue_flare')):
+            x, y = self.sample_flare_position(placed_positions)
+            placed_positions.append((x, y))
+            self.spawn_model(model_name, entity_name, x, y, self.pool_floor_z, yaw=0.0)
+
+    def sample_drum_positions(self):
+        """Four slots in a line across the target zone, in randomised order.
+
+        The target zone is the last ~2 m of the pool; drums sit in a row
+        parallel to the far wall with the blue one anywhere among them.
+        """
+        centre_x = POOL_HALF_LENGTH - TARGET_ZONE_DEPTH / 2.0
+        spacing = self.rng.uniform(1.4, 2.2)
+        offset = self.rng.uniform(-1.0, 1.0)
+        slots = [(centre_x + self.rng.uniform(-0.25, 0.25),
+                  offset + (index - 1.5) * spacing,
+                  self.pool_floor_z)
+                 for index in range(4)]
+        self.rng.shuffle(slots)
+        return slots
+
+    def sample_flare_position(self, occupied_xy):
+        x_range = (self.from_start_wall(COLOUR_FLARE_ZONE[0]),
+                   self.from_start_wall(COLOUR_FLARE_ZONE[1]))
+        y_range = (-(POOL_HALF_WIDTH - 0.5), POOL_HALF_WIDTH - 0.5)
+        minimum_clearance = 1.25
+
+        for _ in range(200):
+            x = self.rng.uniform(*x_range)
+            y = self.rng.uniform(*y_range)
+            if all(math.dist((x, y), other) >= minimum_clearance for other in occupied_xy):
+                return x, y
+        raise RuntimeError('Unable to find a valid position for communication flare placement')
+
+    def spawn_all(self) -> None:
+        if self.arena == 'qualification':
+            self.spawn_qualification()
         else:
-            self.get_logger().error(f'Service call failed for {entity_name}')
-            return False
-    
-    def spawn_drums_at_fixed_positions(self):
-        """Spawn drums at the four fixed positions, with blue drum at random position"""
-        # Shuffle positions to randomize drum placement
-        positions = self.drum_positions.copy()
-        random.shuffle(positions)
-        
-        # Blue drum gets the first position (random due to shuffle)
-        self.get_logger().info('Spawning blue drum...')
-        x, y, z = positions[0]
-        if self.spawn_entity('blue_drum', 'blue_drum', x, y, z):
-            self.get_logger().info(f'Blue drum spawned at position ({x}, {y}, {z})')
-        
-        time.sleep(0.2)
-        
-        # Red drums get the remaining three positions
-        self.get_logger().info('Spawning 3 red drums...')
-        for i in range(3):
-            x, y, z = positions[i + 1]
-            entity_name = f'red_drum{i}'
-            if self.spawn_entity('red_drum', entity_name, x, y, z):
-                self.get_logger().info(f'{entity_name} spawned at position ({x}, {y}, {z})')
-            time.sleep(0.2)
-    
-    def spawn_all_entities(self):
-        """Spawn all configured entities"""
-        spawned_count = 0
-        failed_count = 0
-        
-        # First spawn drums at fixed positions
-        self.spawn_drums_at_fixed_positions()
-        spawned_count += 4  # 1 blue + 3 red
-        
-        # Then spawn other entities
-        for model_name, count, x_range, y_range, z_offset in self.entity_configs:
-            self.get_logger().info(f'Spawning {count} {model_name}(s)...')
-            
-            for i in range(count):
-                # Special handling for orange flare - align x with gate
-                if model_name == 'orange_flare' and self.gate_x_position is not None:
-                    # Use gate's x position with small tolerance (±2.5m)
-                    x = self.gate_x_position + random.uniform(-2.5, 2.5)
-                    self.get_logger().info(f'Orange flare x aligned with gate: {x:.2f}')
-                else:
-                    # Generate random position within specified range
-                    x = random.uniform(x_range[0], x_range[1])
-                
-                y = random.uniform(y_range[0], y_range[1])
-                z = z_offset
-                
-                # Create unique entity name
-                entity_name = f'{model_name}_{i}' if count > 1 else model_name
-                
-                # Spawn the entity
-                if self.spawn_entity(model_name, entity_name, x, y, z):
-                    spawned_count += 1
-                    
-                    # Store gate position for orange flare alignment
-                    if model_name == 'gate':
-                        self.gate_x_position = x
-                        self.get_logger().info(f'Gate x position saved: {x:.2f}')
-                else:
-                    failed_count += 1
-                
-                # Small delay between spawns to avoid overwhelming Gazebo
-                time.sleep(0.2)
-        
-        self.get_logger().info(f'Spawning complete! Success: {spawned_count}, Failed: {failed_count}')
-    
-    def spawn_custom_entity(self, model_name, x_range, y_range, z=-2.2, count=1):
-        """
-        Spawn custom entity with specified ranges
-        
-        Args:
-            model_name: Name of the model to spawn
-            x_range: Tuple (min_x, max_x)
-            y_range: Tuple (min_y, max_y)
-            z: Z coordinate (default: -2.2 for pool floor)
-            count: Number of entities to spawn
-        """
-        for i in range(count):
-            x = random.uniform(x_range[0], x_range[1])
-            y = random.uniform(y_range[0], y_range[1])
-            entity_name = f'{model_name}_custom_{i}' if count > 1 else f'{model_name}_custom'
-            self.spawn_entity(model_name, entity_name, x, y, z)
-            time.sleep(0.2)
+            self.spawn_finals()
+        self.write_manifest()
+
+    def write_manifest(self) -> None:
+        """Write manifest recording actual model spawned for each entity."""
+        path = os.environ.get('ORCA_ARENA_MANIFEST', '/tmp/orca_arena_manifest.json')
+        payload = {'arena': self.arena, 'drum_style': self.drum_style, 'entities': self._spawned}
+        try:
+            with open(path, 'w', encoding='utf-8') as file:
+                json.dump(payload, file, indent=2, sort_keys=True)
+            self.get_logger().info(f'Wrote arena manifest to {path}')
+        except OSError as exc:
+            self.get_logger().warning(f'Could not write arena manifest to {path}: {exc}')
 
 
 def main(args=None):
     rclpy.init(args=args)
-    
-    spawner = EntitySpawner()
-    
-    # Spawn all configured entities
-    spawner.spawn_all_entities()
-    
-    # Example: Spawn additional custom entities
-    # spawner.spawn_custom_entity('golf_ball', x_range=(8, 12), y_range=(8, 12), count=3)
-    
-    # Keep node alive for a bit then shutdown
-    time.sleep(1.0)
-    spawner.destroy_node()
-    rclpy.shutdown()
+    node = EntitySpawner()
+    try:
+        node.spawn_all()
+        time.sleep(0.5)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':

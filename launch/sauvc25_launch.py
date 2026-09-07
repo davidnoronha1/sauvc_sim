@@ -26,20 +26,18 @@ def generate_launch_description():
         }.items()
     )
 
-    # Single bridge node for all topics
+    # Bridge configuration file
+    bridge_config_file = os.path.join(pkg_sauvc_sim, 'config', 'ros_gz_bridge.yaml')
+    if not os.path.exists(bridge_config_file):
+        bridge_config_file = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 'config', 'ros_gz_bridge.yaml'
+        )
+
+    # Bridge node configured with topics consumed by ../mira and /sim testing topics
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
-        arguments=[
-            '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            '/realsense/image@sensor_msgs/msg/Image@gz.msgs.Image',
-            '/realsense/depth_image@sensor_msgs/msg/Image@gz.msgs.Image',
-            '/realsense/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
-            '/realsense/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo',
-            '/bottom_cam@sensor_msgs/msg/Image@gz.msgs.Image',
-            '/side_cam@sensor_msgs/msg/Image@gz.msgs.Image',
-            '/world/pool_world/create@ros_gz_interfaces/srv/SpawnEntity'
-        ],
+        parameters=[{'config_file': bridge_config_file}],
         output='screen'
     )
 
@@ -47,6 +45,17 @@ def generate_launch_description():
     entity_spawner = Node(
         package='sauvc_sim',
         executable='entity_spawner.py',
+        parameters=[{
+            'world_name': 'pool_world',
+            'vehicle_model': 'none',
+        }],
+        output='screen'
+    )
+
+    # Simulation testing helper node (ground truth object poses, /master/heading, /sim/target_point)
+    sim_testing_node = Node(
+        package='sauvc_sim',
+        executable='sim_testing_node.py',
         output='screen'
     )
 
@@ -54,4 +63,5 @@ def generate_launch_description():
         gz_sim,
         bridge,
         entity_spawner,
+        sim_testing_node,
     ])

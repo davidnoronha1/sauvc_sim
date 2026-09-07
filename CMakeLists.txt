@@ -15,7 +15,13 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/teleop.py
   scripts/teleop25.py
-  scripts/entity_spawner.py  
+  scripts/entity_spawner.py
+  scripts/sim_testing_node.py
+  scripts/capture_view.py
+  scripts/generate_dataset.py
+  scripts/make_pool_textures.py
+  scripts/underwater_camera_node.py
+  scripts/altimeter_to_pressure_sensor_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -24,6 +30,7 @@ install(DIRECTORY
   models
   worlds
   meshes
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 

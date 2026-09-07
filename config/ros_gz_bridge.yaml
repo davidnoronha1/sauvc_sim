@@ -1,0 +1,61 @@
+# ROS 2 <-> Gazebo Bridge Configuration for mira_sim
+# Strictly bridges topics consumed by the MIRA stack and the /sim ground truth testing topics.
+
+# --- Front Camera (RGB-D: image + 3D points from its perspective) ---
+- ros_topic_name: /camera_front/image_raw
+  gz_topic_name: camera_front/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera_front/points
+  gz_topic_name: camera_front/points
+  ros_type_name: sensor_msgs/msg/PointCloud2
+  gz_type_name: gz.msgs.PointCloudPacked
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera_front/camera_info
+  gz_topic_name: camera_front/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+
+# --- Bottom Camera (consumed by mira2_perception, vision_boundingbox, aruco_tracker) ---
+- ros_topic_name: /camera_bottom/image_raw
+  gz_topic_name: bottom_camera
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera_bottom/camera_info
+  gz_topic_name: camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+
+# --- IMU ---
+- ros_topic_name: /sim/imu
+  gz_topic_name: /world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+
+# --- Simulation Testing Topics ---
+- ros_topic_name: /sim/pose
+  gz_topic_name: /model/bluerov2_heavy/pose
+  ros_type_name: geometry_msgs/msg/PoseStamped
+  gz_type_name: gz.msgs.Pose
+  direction: GZ_TO_ROS
+
+# --- Vehicle Velocity Control ---
+- ros_topic_name: /cmd_vel
+  gz_topic_name: /cmd_vel
+  ros_type_name: geometry_msgs/msg/Twist
+  gz_type_name: gz.msgs.Twist
+  direction: BIDIRECTIONAL
+
+# --- World Entity Spawn Service ---
+- service_name: /world/pool_world/create
+  ros_type_name: ros_gz_interfaces/srv/SpawnEntity
+  gz_req_type_name: gz.msgs.EntityFactory
+  gz_rep_type_name: gz.msgs.Boolean
