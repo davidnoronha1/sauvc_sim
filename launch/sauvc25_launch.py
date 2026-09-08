@@ -8,9 +8,15 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # Get the path to the world file from the package
     pkg_sauvc_sim = get_package_share_directory('sauvc_sim')
-    world_file = os.path.join(pkg_sauvc_sim, 'worlds', 'sauvc25.world')
+    world_file = os.path.join(pkg_sauvc_sim, 'worlds', 'water_world.sdf')
+    gui_config_file = os.path.join(pkg_sauvc_sim, 'config', 'water_world.config')
+
+    arena = LaunchConfiguration('arena')
+
+    gz_args = f'{world_file} -r'
+    if os.path.exists(gui_config_file):
+        gz_args = f'{gz_args} --gui-config {gui_config_file}'
 
     # Launch Gazebo with the world file
     gz_sim = IncludeLaunchDescription(
@@ -22,7 +28,7 @@ def generate_launch_description():
             ])
         ]),
         launch_arguments={
-            'gz_args': [world_file, ' -r']
+            'gz_args': gz_args
         }.items()
     )
 
@@ -41,12 +47,23 @@ def generate_launch_description():
         output='screen'
     )
 
+    # Entity spawner service bridge
+    spawn_service_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            '/world/water_world/create@ros_gz_interfaces/srv/SpawnEntity',
+        ],
+        output='screen',
+    )
+
     # Entity spawner node
     entity_spawner = Node(
         package='sauvc_sim',
         executable='entity_spawner.py',
         parameters=[{
-            'world_name': 'pool_world',
+            'arena': arena,
+            'world_name': 'water_world',
             'vehicle_model': 'none',
         }],
         output='screen'
@@ -59,9 +76,28 @@ def generate_launch_description():
         output='screen'
     )
 
+    # Underwater camera post-processing node
+    underwater_camera_node = Node(
+        package='sauvc_sim',
+        executable='underwater_camera_node.py',
+        parameters=[{
+            'input_image_topic': '/camera_front/image_raw_dry',
+            'input_depth_topic': '/camera_front/depth/image_raw',
+            'output_image_topic': '/camera_front/image_raw',
+        }],
+        output='screen',
+    )
+
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'arena',
+            default_value='finals',
+            description='Arena profile to spawn: finals or qualification',
+        ),
         gz_sim,
         bridge,
+        spawn_service_bridge,
         entity_spawner,
         sim_testing_node,
+        underwater_camera_node,
     ])

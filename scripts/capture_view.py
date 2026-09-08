@@ -255,8 +255,8 @@ def arena_views(poses: dict) -> list:
         approach('drums', centre, 3.0, 1.0, pitch=0.35)
         approach('drums_close', centre, 1.6, 0.9, pitch=0.55)
 
-    if 'starting_zone' in poses or 'orca_auv' in poses:
-        sx, sy, _ = poses.get('starting_zone', poses.get('orca_auv'))
+    if 'starting_zone' in poses or 'bluerov2_heavy' in poses or 'orca_auv' in poses:
+        sx, sy, _ = poses.get('starting_zone', poses.get('bluerov2_heavy', poses.get('orca_auv')))
         floor = min((p[2] for p in poses.values() if p[2] < -0.5), default=-1.6)
         views.append(['overview', sx + 0.5, sy, floor + 0.8, 0.0, 0.05, 0.0])
 

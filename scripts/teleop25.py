@@ -16,25 +16,28 @@ from ament_index_python.packages import get_package_share_directory
 
 # Movement instructions
 INSTRUCTIONS = """
-AUV Teleop Control
----------------------------
-Moving around:
-   w/s : forward/backward
-   a/d : left/right (strafe)
-   q/e : yaw left/right
-   r/f : up/down
-
-   i/k : increase/decrease linear speed
-   j/l : increase/decrease angular speed
-
-Recording controls:
-   1/2/3 : toggle RealSense/Side/Bottom camera recording
-   0     : start/stop ALL camera recordings
-   
-SPACE : stop all movement
-CTRL-C : quit
-
-Current speeds will be displayed
+╔══════════════════════════════════════════════════════════════╗
+║               MIRA AUV Teleoperation Controls                ║
+╠══════════════════════════════════════════════════════════════╣
+║  Movement:                                                   ║
+║     w / s : Forward / Backward                               ║
+║     a / d : Strafe Left / Right                              ║
+║     r / f : Up / Down (Thrust)                               ║
+║     q / e : Yaw Left / Right                                 ║
+║                                                              ║
+║  Speed Tuning:                                               ║
+║     i / k : Increase / Decrease Linear Speed (±0.1 m/s)      ║
+║     j / l : Increase / Decrease Angular Speed (±0.1 rad/s)   ║
+║                                                              ║
+║  Camera Feeds & Recording:                                   ║
+║     1     : Toggle Front Camera recording                    ║
+║     2     : Toggle Bottom Camera recording                   ║
+║     0     : Start / Stop ALL Camera recordings               ║
+║                                                              ║
+║  Safety & Exit:                                              ║
+║     SPACE : STOP (Zero all velocities immediately)           ║
+║     CTRL-C: Exit teleoperation                               ║
+╚══════════════════════════════════════════════════════════════╝
 """
 
 class TeleopKeyboard(Node):
@@ -73,15 +76,12 @@ class TeleopKeyboard(Node):
         # Camera subscribers (updated to match mira topics)
         self.front_cam_sub = self.create_subscription(
             Image, '/camera_front/image_raw', self.front_cam_callback, 10)
-        self.side_cam_sub = self.create_subscription(
-            Image, '/side_cam', self.side_cam_callback, 10)
         self.bottom_cam_sub = self.create_subscription(
             Image, '/camera_bottom/image_raw', self.bottom_cam_callback, 10)
         
         # Recording state
         self.cameras = {
             'front': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
-            'side': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
             'bottom': {'enabled': False, 'recording': False, 'writer': None, 'latest_frame': None},
         }
         
@@ -106,10 +106,13 @@ class TeleopKeyboard(Node):
         
         self.get_logger().info('AUV Teleop Keyboard initialized')
         self.get_logger().info(f'Recordings will be saved to: {self.recording_dir}')
+    
+    def print_banner(self):
+        """Display the full control scheme and status banner"""
         print(INSTRUCTIONS)
         self.print_current_speeds()
         self.print_recording_status()
-    
+
     def get_key(self, timeout=0.1):
         """Get keyboard input with timeout"""
         rlist, _, _ = select.select([sys.stdin], [], [], timeout)
@@ -120,7 +123,7 @@ class TeleopKeyboard(Node):
     
     def print_current_speeds(self):
         """Print current speed settings"""
-        print(f"\nCurrent speeds - Linear: {self.linear_speed:.2f} m/s, Angular: {self.angular_speed:.2f} rad/s")
+        print(f"\r\nCurrent speeds - Linear: {self.linear_speed:.2f} m/s, Angular: {self.angular_speed:.2f} rad/s\r\n")
     
     def print_recording_status(self):
         """Print current recording status"""
@@ -131,7 +134,7 @@ class TeleopKeyboard(Node):
                 status.append(f"{cam_name}: {state}")
             else:
                 status.append(f"{cam_name}: OFF")
-        print(f"\nRecording status: {' | '.join(status)}")
+        print(f"\r\nRecording status: {' | '.join(status)}\r\n")
     
     def front_cam_callback(self, msg):
         """Callback for front camera"""
@@ -143,16 +146,7 @@ class TeleopKeyboard(Node):
         except Exception as e:
             self.get_logger().error(f'Front camera callback error: {e}')
     
-    def side_cam_callback(self, msg):
-        """Callback for side camera"""
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.cameras['side']['latest_frame'] = cv_image
-            if self.cameras['side']['recording'] and self.cameras['side']['writer']:
-                self.cameras['side']['writer'].write(cv_image)
-        except Exception as e:
-            self.get_logger().error(f'Side camera callback error: {e}')
-    
+
     def bottom_cam_callback(self, msg):
         """Callback for bottom camera"""
         try:
@@ -249,6 +243,9 @@ class TeleopKeyboard(Node):
     
     def run(self):
         """Main control loop"""
+        # Print control scheme banner before entering raw mode
+        self.print_banner()
+
         # Save terminal settings
         settings = termios.tcgetattr(sys.stdin)
         
@@ -269,7 +266,7 @@ class TeleopKeyboard(Node):
                         self.vy = 0.0
                         self.vz = 0.0
                         self.wz = 0.0
-                        print("\nStopped")
+                        print("\r\n[STOP] Velocity zeroed\r\n")
                     
                     # Check for movement
                     elif key in self.move_bindings:
@@ -278,7 +275,7 @@ class TeleopKeyboard(Node):
                         self.vy = dy * self.linear_speed
                         self.vz = dz * self.linear_speed
                         self.wz = dw * self.angular_speed
-                        print(f"\rVel: x={self.vx:.2f} y={self.vy:.2f} z={self.vz:.2f} yaw={self.wz:.2f}", end='')
+                        print(f"\rVel: x={self.vx:+.2f} y={self.vy:+.2f} z={self.vz:+.2f} yaw={self.wz:+.2f}  ", end='', flush=True)
                     
                     # Check for speed adjustment
                     elif key in self.speed_bindings:
@@ -291,8 +288,6 @@ class TeleopKeyboard(Node):
                     elif key == '1':
                         self.toggle_camera('front')
                     elif key == '2':
-                        self.toggle_camera('side')
-                    elif key == '3':
                         self.toggle_camera('bottom')
                     elif key == '0':
                         self.toggle_all_cameras()
@@ -304,7 +299,7 @@ class TeleopKeyboard(Node):
                 rclpy.spin_once(self, timeout_sec=0)
         
         except Exception as e:
-            print(f"\nError: {e}")
+            print(f"\r\nError: {e}\r\n")
         
         finally:
             # Restore terminal settings
@@ -318,7 +313,7 @@ class TeleopKeyboard(Node):
             # Stop the AUV
             twist = Twist()
             self.publisher.publish(twist)
-            print("\nShutting down teleop")
+            print("\r\nShutting down teleop.\r\n")
 
 
 def main(args=None):

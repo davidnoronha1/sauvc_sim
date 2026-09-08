@@ -278,7 +278,7 @@ class EntitySpawner(Node):
 
     def write_manifest(self) -> None:
         """Write manifest recording actual model spawned for each entity."""
-        path = os.environ.get('ORCA_ARENA_MANIFEST', '/tmp/orca_arena_manifest.json')
+        path = os.environ.get('MIRA_ARENA_MANIFEST', '/tmp/arena_manifest.json')
         payload = {'arena': self.arena, 'drum_style': self.drum_style, 'entities': self._spawned}
         try:
             with open(path, 'w', encoding='utf-8') as file:

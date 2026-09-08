@@ -1,9 +1,15 @@
 # ROS 2 <-> Gazebo Bridge Configuration for mira_sim
 # Strictly bridges topics consumed by the MIRA stack and the /sim ground truth testing topics.
 
-# --- Front Camera (RGB-D: image + 3D points from its perspective) ---
-- ros_topic_name: /camera_front/image_raw
+# --- Front Camera (RGB-D: raw dry image + depth for underwater_camera_node) ---
+- ros_topic_name: /camera_front/image_raw_dry
   gz_topic_name: camera_front/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera_front/depth/image_raw
+  gz_topic_name: camera_front/depth_image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
@@ -35,7 +41,7 @@
 
 # --- IMU ---
 - ros_topic_name: /sim/imu
-  gz_topic_name: /world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu
+  gz_topic_name: /world/water_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu
   ros_type_name: sensor_msgs/msg/Imu
   gz_type_name: gz.msgs.IMU
   direction: GZ_TO_ROS
@@ -55,7 +61,7 @@
   direction: BIDIRECTIONAL
 
 # --- World Entity Spawn Service ---
-- service_name: /world/pool_world/create
+- service_name: /world/water_world/create
   ros_type_name: ros_gz_interfaces/srv/SpawnEntity
   gz_req_type_name: gz.msgs.EntityFactory
   gz_rep_type_name: gz.msgs.Boolean

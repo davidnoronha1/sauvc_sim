@@ -55,13 +55,13 @@ def generate_launch_description():
     drum_style = LaunchConfiguration('drum_style')
     vehicle_model = LaunchConfiguration('vehicle_model')
 
-    bridge_config = os.path.join(pkg_share, 'config', 'orca_ros_gz_bridge_config.yaml')
+    bridge_config = os.path.join(pkg_share, 'config', 'ros_gz_bridge.yaml')
 
     return LaunchDescription([
         DeclareLaunchArgument(
             'namespace',
-            default_value='orca_auv',
-            description='ROS and Gazebo topic namespace for the simulated AUV.',
+            default_value='',
+            description='Optional ROS topic namespace for the simulated AUV.',
         ),
         DeclareLaunchArgument(
             'world',
@@ -142,9 +142,11 @@ def generate_launch_description():
         Node(
             package='sauvc_sim',
             executable='underwater_camera_node.py',
-            namespace=namespace,
             parameters=[{
                 'randomize': ParameterValue(randomize_water, value_type=bool),
+                'input_image_topic': '/camera_front/image_raw_dry',
+                'input_depth_topic': '/camera_front/depth/image_raw',
+                'output_image_topic': '/camera_front/image_raw',
             }],
             output='screen',
         ),
