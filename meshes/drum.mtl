@@ -1,0 +1,8 @@
+# Neutral base for drum.obj; each drum model's SDF <material> sets its colour.
+newmtl drum
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.1 0.1 0.1
+Ns 10.0
+d 1.0
+illum 2

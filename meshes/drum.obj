@@ -2,6 +2,7 @@
 # www.blender.org
 mtllib drum.mtl
 o Cone
+usemtl drum
 v 0.000000 1.256495 -1.112115
 v 0.216963 1.256495 -1.090746
 v 0.425588 1.256495 -1.027460
