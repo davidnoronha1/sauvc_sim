@@ -77,9 +77,6 @@
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
-          <script>
-            <name>ModelPreview_4::link::visual_MATERIAL_</name>
-          </script>
           <ambient>1 0 0 1</ambient>
           <diffuse>1 0 0 1</diffuse>
           <specular>0 0 0 1</specular>

@@ -29,10 +29,6 @@
         </geometry>
         <material>
           <lighting>1</lighting>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Grey</name>
-          </script>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
@@ -129,10 +125,6 @@
         </geometry>
         <material>
           <lighting>1</lighting>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Grey</name>
-          </script>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
@@ -229,10 +221,6 @@
         </geometry>
         <material>
           <lighting>1</lighting>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Grey</name>
-          </script>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
@@ -357,10 +345,6 @@
             <shader type='pixel'>
               <normal_map>__default__</normal_map>
             </shader>
-            <script>
-              <name>ModelPreview_4::link::visual_MATERIAL_</name>
-              <uri>__default__</uri>
-            </script>
             <ambient>1 0 0 1</ambient>
             <diffuse>1 0 0 1</diffuse>
             <specular>0 0 0 1</specular>
@@ -489,10 +473,6 @@
             <shader type='pixel'>
               <normal_map>__default__</normal_map>
             </shader>
-            <script>
-              <name>ModelPreview_4::link::visual_MATERIAL_</name>
-              <uri>__default__</uri>
-            </script>
             <ambient>1 0 0 1</ambient>
             <diffuse>1 0 0 1</diffuse>
             <specular>0 0 0 1</specular>

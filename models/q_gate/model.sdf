@@ -25,10 +25,6 @@
           </cylinder>
         </geometry>
         <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/White</name>
-          </script>
           <ambient>1 1 1 1</ambient>
           <diffuse>1 1 1 1</diffuse>
         </material>
@@ -72,10 +68,6 @@
           </cylinder>
         </geometry>
         <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Orange</name>
-          </script>
           <ambient>1 0.55 0 1</ambient>
           <diffuse>1 0.55 0 1</diffuse>
         </material>
@@ -118,10 +110,6 @@
           </cylinder>
         </geometry>
         <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Orange</name>
-          </script>
           <ambient>1 0.55 0 1</ambient>
           <diffuse>1 0.55 0 1</diffuse>
         </material>
