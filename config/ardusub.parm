@@ -1,0 +1,5 @@
+# SCENE-SPECIFIC (sauvc_pool): this pool's floor has straight tile/lane lines
+# along its axes, so the flow-only EKF source set takes ExternalNav yaw from
+# the floor-line heading (optical_flow.yaml in this folder enables it).
+# A scene without that heading must not set this (EKF would have no yaw).
+EK3_SRC2_YAW     6

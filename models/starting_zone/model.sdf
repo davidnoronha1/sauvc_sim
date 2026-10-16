@@ -20,6 +20,14 @@
           <diffuse>1 1 1 1</diffuse>
         </material>
       </visual>
+      <collision name="frame_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.04</radius>
+            <length>1.4</length>
+          </cylinder>
+        </geometry>
+      </collision>
     </link>
 
     <link name="post_front_right">
@@ -36,6 +44,14 @@
           <diffuse>1 1 1 1</diffuse>
         </material>
       </visual>
+      <collision name="frame_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.04</radius>
+            <length>1.4</length>
+          </cylinder>
+        </geometry>
+      </collision>
     </link>
 
     <link name="post_back_left">
@@ -52,6 +68,14 @@
           <diffuse>1 1 1 1</diffuse>
         </material>
       </visual>
+      <collision name="frame_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.04</radius>
+            <length>1.4</length>
+          </cylinder>
+        </geometry>
+      </collision>
     </link>
 
     <link name="post_back_right">
@@ -68,6 +92,14 @@
           <diffuse>1 1 1 1</diffuse>
         </material>
       </visual>
+      <collision name="frame_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.04</radius>
+            <length>1.4</length>
+          </cylinder>
+        </geometry>
+      </collision>
     </link>
   </model>
 

@@ -20,6 +20,7 @@ install(PROGRAMS
 )
 
 install(DIRECTORY
+  config
   launch
   models
   worlds

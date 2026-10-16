@@ -35,3 +35,4 @@ Keyboard control and video capturing:
 ```
 ros2 run sauvc_sim teleop25.py
 ```
+Competition settings live in `config/ardusub.parm` and `config/optical_flow.yaml` (shared by both SAUVC layouts). Global simulator ArduPilot settings live in the parent workspace’s `config/ardupilot/`.

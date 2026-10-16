@@ -1,0 +1,17 @@
+# SCENE-SPECIFIC values for the simulated SAUVC pool (worlds with the
+# pool_ground25 floor: VISION_MAP=sauvc and sauvc_quali). Loaded after
+# mira2_vision/config/optical_flow.yaml (launch flow_scene_config:=).
+/**:
+  ros__parameters:
+    optical_flow:
+      # Floor at 2.2 m in Gazebo, but SITL's pressure depth reads ~0.12 m deeper
+      # than Gazebo truth (raw pressure 0.119 m), so the floor's PRESSURE depth
+      # is 2.32 m. OPTICAL_FLOW_FLOOR_DEPTH overrides it.
+      floor_depth: 2.32
+      # Tile grout and lane lines run along world x/y (lanes along +x), so the
+      # floor-line heading is valid here, with a known axis. Matching autopilot
+      # setting: ardusub.parm in this folder (EK3_SRC2_YAW 6).
+      floor_heading: true
+      line_heading_from_start: false
+      line_heading: 0.0
+      line_symmetry: 90.0
